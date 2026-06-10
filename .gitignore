@@ -1,0 +1,27 @@
+# dependencies
+node_modules/
+
+# app data (downloaded images, generated JSON)
+data/
+
+# secrets / env
+.env
+.env.*
+
+# build / output
+coverage/
+dist/
+build/
+*.tsbuildinfo
+
+# logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+pnpm-debug.log*
+
+# OS / editor files
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

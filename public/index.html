@@ -1,0 +1,152 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Meme Lab</title>
+<link rel="stylesheet" href="style.css">
+</head>
+<body>
+<aside class="sidebar">
+  <h1>🧪 Meme <span>Lab</span></h1>
+  <nav id="nav">
+    <button data-view="library" class="active">📚 Library <span class="count" id="navLib"></span></button>
+    <button data-view="rate">📝 Rate <span class="count hot" id="navRate"></span></button>
+    <button data-view="duel">⚔️ Face-off <span class="count" id="navDuel"></span></button>
+    <button data-view="board">🏆 Leaderboard <span class="count" id="navBoard"></span></button>
+  </nav>
+  <div class="side-foot">
+    harvest → analyze → generate →<br>you rate → it learns →<br>memes duel for the crown
+  </div>
+</aside>
+
+<div class="content">
+  <div id="status" class="status"></div>
+
+  <!-- ================= Library ================= -->
+  <section class="view" data-view="library">
+    <div class="view-head">
+      <h2>Template library <span id="harvestCount" class="muted-note"></span></h2>
+      <div class="view-actions">
+        <button id="seedBtn" class="secondary">🌱 Seed a template</button>
+        <button id="harvestBtn">⛏ Harvest</button>
+      </div>
+    </div>
+    <div id="templates" class="tpl-grid"></div>
+    <div id="emptyLib" class="empty hidden">
+      Library is empty — <b>🌱 Seed</b> a template from the dropdown (12 instant examples from imgflip)
+      or <b>⛏ Harvest</b> top Reddit memes. A template unlocks analysis at 10 examples.
+    </div>
+  </section>
+
+  <!-- ================= Rate ================= -->
+  <section class="view hidden" data-view="rate">
+    <div class="view-head"><h2>Rate this one <span id="ratingProgress" class="muted-note"></span></h2></div>
+    <div id="ratingStage" class="panel hidden">
+      <div class="rate-stage">
+        <canvas id="memeCanvas"></canvas>
+        <div class="rate-side">
+          <div class="rate-buttons">
+            <button class="funny" id="funnyBtn">😂 Funny<small>lands the idea, right structure, good joke — enters the duel pool</small></button>
+            <button class="meh" id="mehBtn">😐 Meh<small>valid meme, weak joke — teaches the humor model</small></button>
+            <button class="flag" id="flagCtxBtn">🧠 Wrong idea<small>misses this template's core idea — sharpens the analysis</small></button>
+            <button class="struct" id="flagStructBtn">📐 Structural fail<small>too long / mispositioned / wrong label mapping</small></button>
+          </div>
+          <textarea id="reasonBox" rows="3"
+            placeholder="Optional: this is funny / meh because… (Claude learns from your reasons)"></textarea>
+          <div class="hint">Funny vs meh trains the humor prompts. The two failure flags revise the
+            <i>analysis</i>: 🧠 when the caption doesn't express what this template is <i>about</i>,
+            📐 when the caption breaks the template's physical structure.</div>
+        </div>
+      </div>
+    </div>
+    <div id="emptyRate" class="empty">
+      Nothing to rate — go to the <b>📚 Library</b> and hit <b>⚡ Generate 10</b> on an analyzed template.
+    </div>
+  </section>
+
+  <!-- ================= Duel ================= -->
+  <section class="view hidden" data-view="duel">
+    <div class="view-head"><h2>⚔️ Funny face-off <span class="muted-note">— click the funnier one</span></h2></div>
+    <div id="duelStage" class="panel hidden">
+      <div class="duel-stage">
+        <div class="duel-card" id="duelA"><img alt="contender A"><div class="duel-meta"></div></div>
+        <div class="vs">VS</div>
+        <div class="duel-card" id="duelB"><img alt="contender B"><div class="duel-meta"></div></div>
+      </div>
+      <div class="duel-actions"><button class="secondary" id="skipDuel">skip matchup</button></div>
+    </div>
+    <div id="emptyDuel" class="empty">
+      The arena needs at least two <b>😂 funny</b>-rated memes. Rate some candidates first.
+    </div>
+  </section>
+
+  <!-- ================= Leaderboard ================= -->
+  <section class="view hidden" data-view="board">
+    <div class="view-head"><h2>🏆 Funniest memes</h2></div>
+    <div id="leaderboard" class="board"></div>
+    <div id="emptyBoard" class="empty">
+      No ranked memes yet — rate candidates as <b>😂 funny</b> and fight some <b>⚔️ face-offs</b>.
+    </div>
+  </section>
+</div>
+
+<!-- ================= Seed gallery modal ================= -->
+<div id="seedModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2>🌱 Pick a template to seed</h2>
+      <input id="seedSearch" type="text" placeholder="Search templates… (e.g. cat, drake, button)" autocomplete="off">
+      <button class="secondary" id="seedClose">✕</button>
+    </div>
+    <p class="modal-hint">Click templates to select them (✓), then confirm — Meme Lab pulls 12 real
+      community memes of each from imgflip and Claude transcribes them into the library.
+      Greyed-out tiles are already in your library.</p>
+    <div id="seedGallery" class="seed-gallery"></div>
+    <div class="modal-foot">
+      <span class="sel-count" id="seedCount">0 selected</span>
+      <button class="secondary" id="seedClear">Clear</button>
+      <span class="spacer"></span>
+      <button id="seedConfirm">🌱 Seed selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Wrong-format bulk flag modal ================= -->
+<div id="flagModal" class="modal hidden">
+  <div class="modal-box">
+    <div class="modal-head">
+      <h2 id="flagTitle">Flag candidates</h2>
+      <span class="spacer"></span>
+      <button class="secondary" id="flagClose">✕</button>
+    </div>
+    <p class="modal-hint" id="flagHint"></p>
+    <div id="flagGrid" class="flag-grid"></div>
+    <textarea id="flagReason" rows="3"
+      placeholder="Shared reason — strongly recommended, this drives the analysis revision"></textarea>
+    <div class="modal-foot">
+      <span class="sel-count" id="flagCount">0 selected</span>
+      <span class="spacer"></span>
+      <button class="secondary" id="flagCancel">Cancel</button>
+      <button id="flagConfirm" class="flag-confirm">Flag selected</button>
+    </div>
+  </div>
+</div>
+
+<!-- ================= Leaderboard lightbox ================= -->
+<div id="lightbox" class="modal hidden">
+  <div class="lightbox-box">
+    <button class="secondary lb-close" id="lbClose">✕</button>
+    <img id="lbImg" alt="meme">
+    <div class="lb-meta" id="lbMeta"></div>
+    <div class="lb-nav">
+      <button class="secondary" id="lbPrev">←</button>
+      <span class="lb-pos" id="lbPos"></span>
+      <button class="secondary" id="lbNext">→</button>
+    </div>
+  </div>
+</div>
+
+<script src="app.js"></script>
+</body>
+</html>
