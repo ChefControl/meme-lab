@@ -36,21 +36,32 @@ Create a `.env` file in the project root:
 ANTHROPIC_API_KEY=sk-ant-...
 ```
 
-Then start the server:
+Then start the app in dev mode (Express API on 5050 + Vite dev server with hot reload on 5173):
 
 ```bash
 npm run dev
 ```
 
-Open **http://localhost:5050**.
+Open **http://localhost:5173** — the Vite dev server proxies `/api`, `/proxy`, and `/data` to the Express backend.
+
+For a production-style run, build the front-end and serve everything from Express on one port:
+
+```bash
+npm run build && npm start
+```
+
+Then open **http://localhost:5050**.
 
 ### Scripts
 
 | Script | Description |
 | --- | --- |
-| `npm run dev` / `npm start` | Run the server (`tsx src/server.ts`) on port 5050 |
+| `npm run dev` | Run the Express API (`tsx watch src/server.ts`, port 5050) and the Vite dev server (port 5173) together |
+| `npm run build` | Build the Svelte front-end (`client/`) to `dist/public` |
+| `npm start` | Run just the Express server (`tsx src/server.ts`) on port 5050, serving the built front-end |
 | `npm test` | Run the test suite (Vitest) |
-| `npm run typecheck` | Type-check with `tsc --noEmit` |
+| `npm run typecheck` | Type-check the server with `tsc --noEmit` |
+| `npm run check` | Type-check the Svelte front-end with `svelte-check` |
 
 ## Data
 
@@ -97,10 +108,16 @@ src/
   duel.ts      Elo duels and leaderboard
   store.ts     On-disk JSON store + types
   claude.ts    Anthropic client + JSON parsing helpers
-public/        Browser UI (vanilla HTML/CSS/JS, canvas meme rendering)
+client/        Svelte 5 front-end (Vite), canvas meme rendering
+  src/
+    App.svelte           Root component + view routing
+    components/          Library, Rate, Duel, Leaderboard, modals
+    lib/store.svelte.ts  Central reactive store (runes)
+    lib/meme.ts          Canvas meme renderer
+    lib/api.ts, types.ts API client + shared types
 tests/         Vitest unit tests
 ```
 
 ## Tech
 
-TypeScript · Express · `@anthropic-ai/sdk` (Claude Opus) · Vitest · vanilla front-end (no framework, canvas-rendered memes).
+TypeScript · Express · `@anthropic-ai/sdk` (Claude Opus) · Vitest · Svelte 5 + Vite front-end (canvas-rendered memes).

@@ -178,7 +178,9 @@ export async function seedTemplate(imgflipName: string, want = 12): Promise<{
   }
   console.log(`[seed] ${tpl.name}: ${found.length} instance images found`);
 
-  // download
+  // download (ensure the raw dir exists — store.ts makes it at boot, but a
+  // missing dir here would silently swallow every write and seed nothing)
+  fs.mkdirSync(path.join(DATA, "raw"), { recursive: true });
   const downloaded: { id: string; file: string }[] = [];
   for (const f of found) {
     try {
@@ -228,7 +230,8 @@ export async function harvest(maxNew = 30): Promise<{
   const posts = await fetchPosts();
   console.log(`[harvest] ${posts.length} posts fetched`);
 
-  // download new images
+  // download new images (ensure raw dir exists, else every write silently skips)
+  fs.mkdirSync(path.join(DATA, "raw"), { recursive: true });
   const fresh: RawEntry[] = [];
   for (const p of posts) {
     if (fresh.length >= maxNew) break;

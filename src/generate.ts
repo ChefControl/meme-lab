@@ -62,7 +62,7 @@ Return ONLY raw JSON: {"positive_prompt": "...", "negative_prompt": "..."}`,
   return learnings;
 }
 
-export async function generateCandidates(slug: string): Promise<Candidate[]> {
+export async function generateCandidates(slug: string, count = ROUND_SIZE): Promise<Candidate[]> {
   let t = getTemplate(slug);
   if (!t.meta) throw new Error(`Unknown template: ${slug}`);
   if (!t.analysis) throw new Error("Template must be analyzed first (needs 10+ examples)");
@@ -110,7 +110,7 @@ ${layout.length <= 2
   if (alreadyUsed) {
     sections.push(`Do NOT repeat or closely rehash any of these previously generated captions:\n${alreadyUsed}`);
   }
-  sections.push(`Write ${ROUND_SIZE} NEW caption candidates for this template. Vary the topics widely (everyday life, work, relationships, internet culture, food, sleep, money...). Each caption: top text and bottom text fitting the template's structure (if the format only needs one line, leave bottom empty). Keep each line under 70 characters.
+  sections.push(`Write ${count} NEW caption candidates for this template. Vary the topics widely (everyday life, work, relationships, internet culture, food, sleep, money...). Each caption: top text and bottom text fitting the template's structure (if the format only needs one line, leave bottom empty). Keep each line under 70 characters.
 
 Return ONLY a raw JSON array (no markdown fences):
 [{"top": "...", "bottom": "..."}]`);
@@ -125,7 +125,7 @@ Return ONLY a raw JSON array (no markdown fences):
 
   const captions = jsonFrom<{ top: string; bottom: string }[]>(res);
   const now = new Date().toISOString();
-  const fresh: Candidate[] = captions.slice(0, ROUND_SIZE).map((c) => ({
+  const fresh: Candidate[] = captions.slice(0, count).map((c) => ({
     id: crypto.randomUUID().slice(0, 8),
     top: c.top ?? "",
     bottom: c.bottom ?? "",

@@ -12,7 +12,7 @@ import { DATA, TPL, getTemplate, listTemplates, saveCandidates, saveJSON, loadJS
 
 const app = express();
 app.use(express.json({ limit: "15mb" })); // rated meme PNGs arrive as data URLs
-app.use(express.static("public"));
+app.use(express.static("dist/public")); // Vite build output (client/)
 app.use("/data", express.static(DATA));
 
 let busy: string | null = null; // serialize the long-running Claude jobs
@@ -63,7 +63,8 @@ app.post("/api/layout/:slug", (req, res) => {
 });
 
 app.post("/api/generate/:slug", (req, res) => {
-  run(`generating for ${req.params.slug}`, () => generateCandidates(req.params.slug), res);
+  const count = req.body?.count ? Math.min(Math.max(1, Number(req.body.count)), 10) : undefined;
+  run(`generating for ${req.params.slug}`, () => generateCandidates(req.params.slug, count), res);
 });
 
 app.post("/api/rate", (req, res) => {
