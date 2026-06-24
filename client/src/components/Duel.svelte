@@ -11,21 +11,27 @@
 
 <svelte:window onkeydown={onKey} />
 
-<section class="view">
-  <div class="view-head"><h2>⚔️ Funny face-off <span class="muted-note">— click the funnier one</span></h2></div>
+<section class="section">
+  <div class="duel-head">
+    <h2 class="page-title">⚔ Funny face-off</h2>
+    <div class="page-sub">click the funnier one · winner gains Elo · {store.board.length} ranked</div>
+  </div>
+
   {#if store.duelPair}
-    <div class="panel">
-      <div class="duel-stage">
-        {#each store.duelPair as f, i (f.slug + f.id)}
-          {#if i === 1}<div class="vs">VS</div>{/if}
-          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <div class="duel-card" onclick={() => store.vote(i as 0 | 1)}>
-            <img src={f.image} alt={`contender ${i === 0 ? "A" : "B"}`} />
-            <div class="duel-meta">{f.template} · elo {f.elo} · {f.duels} duels</div>
+    <div class="duel-stage">
+      {#each store.duelPair as f, i (f.slug + f.id)}
+        <button class="duel-card" onclick={() => store.vote(i as 0 | 1)}>
+          <img src={f.image} alt={`contender ${i === 0 ? "A" : "B"}`} />
+          <div class="duel-meta">
+            <span>{f.template}</span>
+            <span class="elo">elo {f.elo}</span>
+            <span class="d">{f.duels}d</span>
           </div>
-        {/each}
-      </div>
-      <div class="duel-actions"><button class="secondary" onclick={() => store.loadDuel(true)}>skip matchup</button></div>
+        </button>
+      {/each}
+    </div>
+    <div class="duel-skip-wrap">
+      <button class="btn" onclick={() => store.loadDuel(true)}>skip matchup <span class="key">space</span></button>
     </div>
   {:else}
     <div class="empty">

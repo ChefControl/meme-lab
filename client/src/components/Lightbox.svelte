@@ -24,16 +24,16 @@
   <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
   <div class="modal" onclick={(e) => e.currentTarget === e.target && close()}>
     <div class="lightbox-box">
-      <button class="secondary lb-close" onclick={close}>✕</button>
+      <button class="icon-btn lb-close" onclick={close} aria-label="Close">✕</button>
       <img src={f.image} alt="meme" />
       <div class="lb-meta">
         {rankIcon(i)} “{f.top}”{f.bottom ? ` / “${f.bottom}”` : ""}
-        <small>{f.template} · <span class="elo-inline">elo {f.elo}</span> · {f.duels} duels</small>
+        <small>{f.template} · <span class="elo">elo {f.elo}</span> · {f.duels} duels</small>
       </div>
       <div class="lb-nav">
-        <button class="secondary" onclick={() => step(-1)}>←</button>
+        <button class="btn" onclick={() => step(-1)}>←</button>
         <span class="lb-pos">{i + 1} / {store.board.length}</span>
-        <button class="secondary" onclick={() => step(1)}>→</button>
+        <button class="btn" onclick={() => step(1)}>→</button>
       </div>
     </div>
   </div>

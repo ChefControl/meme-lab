@@ -18,6 +18,7 @@ export interface Candidate {
   bottom: string;
   status: RatingStatus;
   reason?: string;
+  batch?: number;
   elo?: number;
   duels?: number;
 }
@@ -70,6 +71,23 @@ export interface ImgflipItem {
   name: string;
   url: string;
   box_count: number;
+}
+
+/** Full per-template analysis for the Library detail drawer (GET /api/template/:slug). */
+export interface TemplateDetail {
+  slug: string;
+  name: string;
+  analyzed: boolean;
+  revision: number;
+  core_idea: string;
+  context: string;
+  structure: string;
+  tone: string;
+  rules: string[];
+  boxes: { role: string }[];
+  learning: boolean;
+  positive_prompt: string;
+  negative_prompt: string;
 }
 
 export type View = "library" | "rate" | "duel" | "board";

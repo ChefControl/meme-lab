@@ -8,22 +8,37 @@
   import Leaderboard from "./components/Leaderboard.svelte";
   import SeedModal from "./components/SeedModal.svelte";
   import Lightbox from "./components/Lightbox.svelte";
+  import TemplateDrawer from "./components/TemplateDrawer.svelte";
 
   onMount(() => store.init());
+
+  // The status bar dot is amber while a job holds the server, green when idle.
+  const dot = $derived(store.locked ? "#f0b85e" : "#74e98c");
+  const statusText = $derived(store.status || "idle · ready for the next job");
 </script>
 
 <div class="app">
-  <Sidebar />
-  <div class="content">
-    <div class="status">
-      {#if store.status}<span class="status-dot">›</span>{store.status}{/if}
-    </div>
-    {#if store.view === "library"}<Library />{/if}
-    {#if store.view === "rate"}<Rate />{/if}
-    {#if store.view === "duel"}<Duel />{/if}
-    {#if store.view === "board"}<Leaderboard />{/if}
-  </div>
-</div>
+  <div class="lab-texture"></div>
 
-{#if store.seedOpen}<SeedModal />{/if}
-{#if store.lightboxIndex !== null}<Lightbox />{/if}
+  <Sidebar />
+
+  <main class="main">
+    <div class="statusbar">
+      <span class="sdot" style:background={dot} style:box-shadow={`0 0 8px ${dot}`}></span>
+      <span class="stext">{statusText}</span>
+      <span class="smeta">localhost:5050 · single-user</span>
+    </div>
+
+    <div class="content">
+      {#if store.view === "library"}<Library />{/if}
+      {#if store.view === "rate"}<Rate />{/if}
+      {#if store.view === "duel"}<Duel />{/if}
+      {#if store.view === "board"}<Leaderboard />{/if}
+    </div>
+  </main>
+
+  {#if store.detailSlug}<TemplateDrawer />{/if}
+  {#if store.seedOpen}<SeedModal />{/if}
+  {#if store.lightboxIndex !== null}<Lightbox />{/if}
+  {#if store.toast}<div class="toast">{store.toast}</div>{/if}
+</div>
