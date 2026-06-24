@@ -38,6 +38,29 @@ app.get("/api/state", (_req, res) => {
   res.json({ busy, harvested: raw.length, templates: listTemplates() });
 });
 
+// Full per-template analysis for the Library detail drawer. Kept off /api/state
+// so the list payload stays light — fetched lazily when a drawer opens.
+app.get("/api/template/:slug", (req, res) => {
+  const t = getTemplate(req.params.slug);
+  if (!t.meta) return res.status(404).json({ error: "unknown template" });
+  const a = t.analysis;
+  res.json({
+    slug: t.meta.slug,
+    name: t.meta.name,
+    analyzed: !!a,
+    revision: a?.revision ?? (a ? 1 : 0),
+    core_idea: a?.core_idea ?? "",
+    context: a?.context ?? "",
+    structure: a?.structure ?? "",
+    tone: a?.tone ?? "",
+    rules: a?.rules ?? [],
+    boxes: (a?.box_layout ?? []).map((b) => ({ role: b.role })),
+    learning: !!t.learnings,
+    positive_prompt: t.learnings?.positive_prompt ?? "",
+    negative_prompt: t.learnings?.negative_prompt ?? "",
+  });
+});
+
 app.post("/api/harvest", (req, res) => {
   const max = Math.min(Number(req.body?.max ?? 30), 60);
   run("harvesting", () => harvest(max), res);

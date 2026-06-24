@@ -33,38 +33,41 @@
 <div class="modal" onclick={(e) => e.currentTarget === e.target && close()}>
   <div class="modal-box">
     <div class="modal-head">
-      <h2>🌱 Pick a template to seed</h2>
-      <input bind:this={searchEl} bind:value={filter} type="text"
+      <h3 class="modal-title">Seed a template</h3>
+      <input class="modal-search" bind:this={searchEl} bind:value={filter} type="text"
         placeholder="Search templates… (e.g. cat, drake, button)" autocomplete="off" />
-      <button class="secondary" onclick={close}>✕</button>
+      <button class="icon-btn" onclick={close} aria-label="Close">✕</button>
     </div>
-    <p class="modal-hint">
-      Pick templates, then hit go — Meme Lab runs the whole lifecycle for each automatically:
-      <b>seed</b> (12 real community memes) → <b>analyze</b> → <b>generate</b> a few candidates, then drops you
-      straight into rating. Greyed-out tiles are already in your library.
-    </p>
-    <div class="seed-gallery">
+    <div class="modal-hint">
+      pulls 12 guaranteed instances straight from imgflip — no waiting on the harvest feed. Pick any number;
+      Meme Lab runs <b>seed → analyze → generate</b> for each, then drops you into rating. Greyed tiles are already in your library.
+    </div>
+
+    <div class="seed-grid">
       {#if !store.imgflip.length}
-        <div class="gallery-loading">Loading templates…</div>
+        <div class="seed-loading">Loading templates…</div>
       {:else if !matches.length}
-        <div class="empty" style="grid-column: 1/-1">No templates match “{filter}”.</div>
+        <div class="seed-loading">No templates match “{filter}”.</div>
       {:else}
         {#each matches as t (t.name)}
           {@const already = inLib.has(t.name.toLowerCase())}
-          <!-- svelte-ignore a11y_click_events_have_key_events a11y_no_static_element_interactions -->
-          <div class="seed-tile" class:in-lib={already} class:selected={selected.has(t.name)}
-            onclick={() => !already && toggle(t.name)}>
-            <img src={`/proxy?url=${encodeURIComponent(t.url)}`} alt={t.name} loading="lazy" />
-            <div class="tile-name">{t.name}<small>{already ? "already in library" : `${t.box_count} text boxes`}</small></div>
-          </div>
+          <button class="seed-tile" class:in-lib={already} class:selected={selected.has(t.name)}
+            disabled={already} onclick={() => !already && toggle(t.name)}>
+            <div class="seed-thumb"><img src={`/proxy?url=${encodeURIComponent(t.url)}`} alt={t.name} loading="lazy" /></div>
+            <div class="seed-tile-body">
+              <div class="seed-tile-name">{t.name}</div>
+              <div class="seed-tile-sub">{already ? "already in library" : `${t.box_count} boxes`}</div>
+            </div>
+          </button>
         {/each}
       {/if}
     </div>
+
     <div class="modal-foot">
       <span class="sel-count">{selected.size} selected</span>
-      <button class="secondary" onclick={() => (selected = new Set())}>Clear</button>
+      <button class="btn" onclick={() => (selected = new Set())}>Clear</button>
       <span class="spacer"></span>
-      <button disabled={selected.size === 0} onclick={confirm}>🚀 Seed → analyze → generate</button>
+      <button class="btn btn-primary" disabled={selected.size === 0} onclick={confirm}>🚀 Seed → analyze → generate</button>
     </div>
   </div>
 </div>

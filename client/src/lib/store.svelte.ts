@@ -2,7 +2,7 @@
 // components mutate it through the action methods below.
 import { api } from "./api";
 import type {
-  AppState, Fighter, ImgflipItem, QueueItem, Rating, View,
+  AppState, Fighter, ImgflipItem, QueueItem, Rating, TemplateDetail, View,
 } from "./types";
 
 const RATING_LABEL: Record<Rating, string> = {
@@ -40,7 +40,35 @@ class Store {
   seedOpen = $state(false);
   lightboxIndex = $state<number | null>(null);
 
+  // template detail drawer
+  detailSlug = $state<string | null>(null);
+  detail = $state<TemplateDetail | null>(null);
+
+  // transient pop confirmation (separate from the persistent status bar text)
+  toast = $state<string | null>(null);
+
   #busyWatch = false;
+  #toastTimer: ReturnType<typeof setTimeout> | undefined;
+
+  /** Briefly flash a toast — used for ephemeral "job started / rated" feedback. */
+  flash(msg: string): void {
+    clearTimeout(this.#toastTimer);
+    this.toast = msg;
+    this.#toastTimer = setTimeout(() => { this.toast = null; }, 2200);
+  }
+
+  /* ------------------------------------------------------ detail drawer */
+
+  async openDetail(slug: string): Promise<void> {
+    this.detailSlug = slug;
+    this.detail = null;
+    try {
+      this.detail = await api<TemplateDetail>(`/api/template/${slug}`);
+    } catch (e) {
+      this.status = `Couldn't load template detail: ${(e as Error).message}`;
+    }
+  }
+  closeDetail(): void { this.detailSlug = null; this.detail = null; }
 
   /** The candidate currently being rated — head of the queue. */
   get current(): QueueItem | null {
@@ -106,6 +134,7 @@ class Store {
 
   async doJob(path: string, msg: string): Promise<void> {
     this.status = msg;
+    this.flash(msg);
     this.locked = true;
     try {
       await api(path, { method: "POST", body: {} });
@@ -124,6 +153,7 @@ class Store {
 
   async seed(name: string): Promise<void> {
     this.status = `Seeding "${name}" from imgflip + transcribing with Claude vision…`;
+    this.flash(`🌱 seeding "${name}" — pulling examples from imgflip…`);
     this.locked = true;
     try {
       const r = await api<{ seeded: number; template: string; total: number }>(
@@ -179,6 +209,7 @@ class Store {
 
   async harvest(): Promise<void> {
     this.status = "Harvesting top memes + Claude vision template identification — this takes a few minutes…";
+    this.flash("⛏ harvesting top memes from 5 subreddits…");
     this.locked = true;
     try {
       const r = await api<{ byTemplate?: Record<string, number>; new_images: number; templated: number }>(
@@ -211,6 +242,7 @@ class Store {
     this.queue.shift();
     this.ratedThisSession++;
     this.status = `${RATING_LABEL[rating]} — ${item.name}${reason ? ` · “${reason}”` : ""}`;
+    this.flash(RATING_LABEL[rating]);
     try {
       await api("/api/rate", {
         method: "POST",
@@ -249,6 +281,7 @@ class Store {
         },
       });
       this.status = `Winner climbs to elo ${r.winnerElo}, loser drops to ${r.loserElo}.`;
+      this.flash(`⚔ +elo to the funnier one (${r.winnerElo})`);
       void this.loadDuel(true);
       void this.loadLeaderboard();
     } catch (e) {
