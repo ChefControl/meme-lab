@@ -561,15 +561,29 @@ function gauss(): number {
 
 /* -------------------------------------------------------------- scoring */
 
+function applyReward(clip: Sound, r: number): void {
+  clip.plays += 1;
+  clip.reward_sum += r;
+  clip.score = clip.reward_sum / clip.plays;
+  clip.best = Math.max(clip.best, r);
+}
+
 export function scoreSound(id: string, reward: number): Sound | null {
   const r = Math.max(0, Math.min(1, reward));
   const sounds = loadSounds();
   const s = sounds.find((x) => x.id === id);
   if (!s) return null;
-  s.plays += 1;
-  s.reward_sum += r;
-  s.score = s.reward_sum / s.plays;
-  s.best = Math.max(s.best, r);
+  applyReward(s, r);
+
+  // Credit assignment: a remix's reward also flows to its base video AND sound.
+  // Averaged over many different pairings, each base asset's score converges to its
+  // own contribution — so we learn whether the video or the sound is the funny part.
+  if (s.kind === "remix" && s.parents) {
+    const v = sounds.find((x) => x.id === s.parents!.video);
+    const snd = sounds.find((x) => x.id === s.parents!.sound);
+    if (v) applyReward(v, r);
+    if (snd) applyReward(snd, r);
+  }
   saveSounds(sounds);
 
   const profile = loadProfile();
