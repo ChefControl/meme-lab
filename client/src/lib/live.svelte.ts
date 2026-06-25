@@ -16,6 +16,7 @@ const REMIX_BATCH = 12;      // remixes generated when entering remix mode / ref
 const MIN_WATCH_MS = 2600;   // give a clip this long to land a laugh before we cut it
 const NOT_SMILING = 0.12;    // smile below this = not laughing → cut + penalize
 const EXPLORE_AFTER = 5;     // no-smile remixes in a row → explore fresh, unplayed videos
+const RESET_MS = 1000;       // blank "back to neutral" pause between evaluation clips
 
 // Reaction-time handling — a laugh lands a beat AFTER the sound, so attribution
 // has to account for human reaction lag (~0.3–1.5s), especially on short clips.
@@ -35,6 +36,7 @@ class LiveStore {
   sensorReady = $state(false);
   sessionPlays = $state(0);
   reacting = $state(false);           // in the post-clip reaction window (UI hint)
+  resetting = $state(false);          // 1s "back to neutral" pause between eval clips
   rawRated = $state(0);               // raw (non-remix) clips rated this session
   remixOnly = $state(false);          // post-evaluation: feed serves only remixes
   generatingRemix = $state(false);    // a remix batch is being created
@@ -255,6 +257,7 @@ class LiveStore {
     this.playedIds.clear();
     this.currentIsRepeat = false;
     this.noSmileStreak = 0;
+    this.resetting = false;
     void this.ensureNext();
   }
 
@@ -279,9 +282,21 @@ class LiveStore {
       this.generatingRemix = true;
       try { await this.remix(REMIX_BATCH, true); } finally { this.generatingRemix = false; }
       await this.ensureNext();
+    } else if (!this.remixOnly) {
+      await this.resetThenNext(); // evaluation: blank "back to neutral" pause first
     } else {
-      await this.ensureNext();
+      await this.ensureNext();    // live feed: straight to the next clip
     }
+  }
+
+  /** Show a 1s blank "back to neutral" screen, then advance — so the previous
+   *  clip's reaction can't bleed into the next clip's measurement. */
+  private async resetThenNext(): Promise<void> {
+    this.current = null;     // hide the reel
+    this.resetting = true;
+    await new Promise((r) => setTimeout(r, RESET_MS));
+    this.resetting = false;
+    await this.ensureNext();
   }
 
   private async commitReward(skipped: boolean): Promise<void> {
@@ -354,7 +369,7 @@ class LiveStore {
     this.current = null;
     this.smile = 0; this.liveScore = 0;
     this.remixOnly = false; this.rawRated = 0; this.generatingRemix = false;
-    this.playedIds.clear(); this.currentIsRepeat = false; this.noSmileStreak = 0;
+    this.playedIds.clear(); this.currentIsRepeat = false; this.noSmileStreak = 0; this.resetting = false;
     if (this.phase !== "needs-sounds") this.phase = this.hasSounds ? "consent" : "needs-sounds";
   }
 }

@@ -167,6 +167,11 @@
             <p class="live-p">Evaluation done — fusing your funniest sounds × videos into fresh memes.</p>
             {#if live.status}<div class="live-status">{live.status}</div>{/if}
           </div>
+        {:else if live.resetting}
+          <div class="reset-screen">
+            <div class="reset-emoji">😐</div>
+            <div class="reset-text">back to neutral…</div>
+          </div>
         {:else if live.current}
           <div class="reel">
             {#if live.current.kind === "video" || live.current.kind === "remix"}
