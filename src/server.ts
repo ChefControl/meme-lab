@@ -8,6 +8,10 @@ import { analyzeTemplate, ensureBoxLayout } from "./analyze.js";
 import { getDuelPair, leaderboard, recordDuel } from "./duel.js";
 import { generateCandidates } from "./generate.js";
 import { getImgflipTemplates, harvest, seedTemplate } from "./harvest.js";
+import {
+  harvestSounds, harvestVideos, remixClips, listSounds, pickNext, scoreSound,
+  leaderboard as soundLeaderboard, humorProfile,
+} from "./live.js";
 import { DATA, TPL, getTemplate, listTemplates, saveCandidates, saveJSON, loadJSON } from "./store.js";
 
 const app = express();
@@ -146,6 +150,48 @@ app.post("/api/duel", (req, res) => {
 
 app.get("/api/leaderboard", (_req, res) => {
   res.json(leaderboard(20));
+});
+
+/* ---------------------------------------------------------- Meme Lab Live */
+
+app.get("/api/live/sounds", (_req, res) => {
+  res.json({ sounds: listSounds(), profile: humorProfile() });
+});
+
+app.post("/api/live/harvest", (req, res) => {
+  const max = Math.min(Math.max(1, Number(req.body?.max ?? 24)), 200);
+  run("harvesting sounds", () => harvestSounds(max), res);
+});
+
+app.post("/api/live/harvest-videos", (req, res) => {
+  const max = Math.min(Math.max(1, Number(req.body?.max ?? 8)), 150);
+  run("harvesting videos", () => harvestVideos(max), res);
+});
+
+app.post("/api/live/remix", (req, res) => {
+  const count = Math.min(Math.max(1, Number(req.body?.count ?? 4)), 10);
+  run("remixing clips", () => remixClips(count), res);
+});
+
+// Stateless next-pick: the client passes recently played ids to avoid repeats.
+app.post("/api/live/next", (req, res) => {
+  const exclude = Array.isArray(req.body?.exclude) ? req.body.exclude.map(String) : [];
+  const kinds = Array.isArray(req.body?.kinds) ? req.body.kinds.map(String) : undefined;
+  const next = pickNext(exclude, kinds);
+  if (!next) return res.json({ sound: null });
+  res.json({ sound: next });
+});
+
+app.post("/api/live/score", (req, res) => {
+  const { id, reward } = req.body as { id?: string; reward?: number };
+  if (!id || typeof reward !== "number") return res.status(400).json({ error: "id and reward required" });
+  const sound = scoreSound(id, reward);
+  if (!sound) return res.status(404).json({ error: "unknown sound" });
+  res.json({ sound });
+});
+
+app.get("/api/live/leaderboard", (_req, res) => {
+  res.json(soundLeaderboard(20));
 });
 
 // Image proxy so the browser canvas isn't CORS-tainted when rendering templates

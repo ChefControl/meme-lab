@@ -1,5 +1,6 @@
 <script lang="ts">
   import { store } from "../lib/store.svelte";
+  import { live } from "../lib/live.svelte";
   import type { View } from "../lib/types";
 
   const nav = $derived<{ view: View; icon: string; label: string; count: string | number; hot?: boolean }[]>([
@@ -7,6 +8,7 @@
     { view: "rate", icon: "📝", label: "Rate", count: store.queue.length, hot: store.queue.length > 0 },
     { view: "duel", icon: "⚔️", label: "Face-off", count: store.duelPair ? "⚡" : 0 },
     { view: "board", icon: "🏆", label: "Leaderboard", count: store.board.length },
+    { view: "live", icon: "📷", label: "Live", count: live.sounds.length || "⚡", hot: live.sounds.length > 0 },
   ]);
 
   // "The loop" mirrors the real pipeline state — each dot lights as that stage
