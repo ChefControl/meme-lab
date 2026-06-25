@@ -461,11 +461,13 @@ export async function remixClips(count = 4, explore = false): Promise<{ added: n
   const sounds = clips.filter((c) => c.kind === "sound");
   if (!videos.length || !sounds.length) throw new Error("need at least one video and one sound to remix");
 
+  // shuffle THEN sort so equal/zero scores break ties randomly (avoids regenerating
+  // the same mixes when there's little/no ranking signal yet).
   const unplayed = shuffle(videos.filter((v) => v.plays === 0));
   const topV = explore
     ? (unplayed.length >= 4 ? unplayed : shuffle([...videos]).sort((a, b) => a.plays - b.plays)).slice(0, 8)
-    : [...videos].sort(byScore).slice(0, 8);
-  const topS = [...sounds].sort(byScore).slice(0, 8);
+    : shuffle([...videos]).sort(byScore).slice(0, 8);
+  const topS = shuffle([...sounds]).sort(byScore).slice(0, 8);
   const specs = await pairRemixes(topV, topS, count);
 
   const all = loadSounds();
@@ -599,6 +601,15 @@ export function scoreSound(id: string, reward: number): Sound | null {
 }
 
 export function humorProfile(): HumorProfile { return loadProfile(); }
+
+/** Delete all remix clips (files + index entries); base sounds/videos are kept. */
+export function clearRemixes(): { deleted: number } {
+  const all = loadSounds();
+  const remixes = all.filter((s) => s.kind === "remix");
+  for (const s of remixes) { try { fs.rmSync(localOf(s.file), { force: true }); } catch { /* already gone */ } }
+  saveSounds(all.filter((s) => s.kind !== "remix"));
+  return { deleted: remixes.length };
+}
 
 /** Wipe all learned ranking signal: zero every clip's score/plays and clear the profile. */
 export function resetScores(): { reset: number } {

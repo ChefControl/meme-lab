@@ -9,7 +9,7 @@ import { getDuelPair, leaderboard, recordDuel } from "./duel.js";
 import { generateCandidates } from "./generate.js";
 import { getImgflipTemplates, harvest, seedTemplate } from "./harvest.js";
 import {
-  harvestSounds, harvestVideos, remixClips, fillSilentClips, resetScores,
+  harvestSounds, harvestVideos, remixClips, fillSilentClips, resetScores, clearRemixes,
   listSounds, pickNext, scoreSound, leaderboard as soundLeaderboard, humorProfile,
 } from "./live.js";
 import { DATA, TPL, getTemplate, listTemplates, saveCandidates, saveJSON, loadJSON } from "./store.js";
@@ -201,6 +201,10 @@ app.get("/api/live/leaderboard", (_req, res) => {
 
 app.post("/api/live/reset-scores", (_req, res) => {
   res.json(resetScores());
+});
+
+app.post("/api/live/clear-remixes", (_req, res) => {
+  res.json(clearRemixes());
 });
 
 // Image proxy so the browser canvas isn't CORS-tainted when rendering templates
