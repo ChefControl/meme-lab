@@ -451,16 +451,21 @@ async function pairRemixes(videos: Sound[], sounds: Sound[], count: number): Pro
   }
 }
 
-/** Fuse top-scoring video visuals with top-scoring sounds into new captioned remix clips. */
-export async function remixClips(count = 4): Promise<{ added: number; total: number }> {
+/** Fuse video visuals with sounds into new captioned remix clips.
+ *  exploit (default): top-scoring videos. explore: unplayed/least-played videos,
+ *  shuffled — so a no-laugh streak pulls in fresh material the user hasn't seen. */
+export async function remixClips(count = 4, explore = false): Promise<{ added: number; total: number }> {
   fs.mkdirSync(VIDEO_DIR, { recursive: true });
   const clips = listSounds();
-  const videos = clips.filter((c) => c.kind === "video").sort(byScore);
-  const sounds = clips.filter((c) => c.kind === "sound").sort(byScore);
+  const videos = clips.filter((c) => c.kind === "video");
+  const sounds = clips.filter((c) => c.kind === "sound");
   if (!videos.length || !sounds.length) throw new Error("need at least one video and one sound to remix");
 
-  const topV = videos.slice(0, 5);
-  const topS = sounds.slice(0, 8);
+  const unplayed = shuffle(videos.filter((v) => v.plays === 0));
+  const topV = explore
+    ? (unplayed.length >= 4 ? unplayed : shuffle([...videos]).sort((a, b) => a.plays - b.plays)).slice(0, 8)
+    : [...videos].sort(byScore).slice(0, 8);
+  const topS = [...sounds].sort(byScore).slice(0, 8);
   const specs = await pairRemixes(topV, topS, count);
 
   const all = loadSounds();

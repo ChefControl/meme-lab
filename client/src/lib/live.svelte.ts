@@ -15,6 +15,7 @@ const EVAL_TARGET = 20;      // raw clips to rate before the feed switches to re
 const REMIX_BATCH = 12;      // remixes generated when entering remix mode / refilling
 const MIN_WATCH_MS = 2600;   // give a clip this long to land a laugh before we cut it
 const NOT_SMILING = 0.12;    // smile below this = not laughing → cut + penalize
+const EXPLORE_AFTER = 5;     // no-smile remixes in a row → explore fresh, unplayed videos
 
 // Reaction-time handling — a laugh lands a beat AFTER the sound, so attribution
 // has to account for human reaction lag (~0.3–1.5s), especially on short clips.
@@ -59,6 +60,7 @@ class LiveStore {
   private clipEndedAt = 0;            // when the audio ended (tail start)
   private playedIds = new Set<string>(); // clips seen this session (for first-play-full-length)
   private currentIsRepeat = false;    // current clip has been played before this session
+  private noSmileStreak = 0;          // consecutive no-smile remixes (drives exploration)
 
   get hasSounds(): boolean { return this.sounds.length > 0; }
 
@@ -104,11 +106,13 @@ class LiveStore {
       this.sounds.some((s) => s.kind === "video" || s.kind === "remix");
   }
 
-  async remix(count = 4): Promise<void> {
-    this.status = "Fusing your top sounds × videos into new remixes…";
+  async remix(count = 4, explore = false): Promise<void> {
+    this.status = explore
+      ? "Not landing — exploring fresh videos for your feed…"
+      : "Fusing your top sounds × videos into new remixes…";
     try {
       const r = await api<{ added: number; total: number }>(
-        "/api/live/remix", { method: "POST", body: { count } });
+        "/api/live/remix", { method: "POST", body: { count, explore } });
       this.status = `Created ${r.added} remixes. Pool: ${r.total}.`;
       await this.load();
     } catch (e) { this.status = `Remix error: ${(e as Error).message}`; }
@@ -250,11 +254,13 @@ class LiveStore {
     this.recent = [];
     this.playedIds.clear();
     this.currentIsRepeat = false;
+    this.noSmileStreak = 0;
     void this.ensureNext();
   }
 
   /** After the first evaluation pass, fuse the top picks and flip to a remix-only feed. */
   private async enterRemixMode(): Promise<void> {
+    this.noSmileStreak = 0;
     this.generatingRemix = true;
     try { await this.remix(REMIX_BATCH); } finally { this.generatingRemix = false; }
     this.remixOnly = true;
@@ -262,10 +268,17 @@ class LiveStore {
     await this.ensureNext();
   }
 
-  /** Route the feed after each rating: trigger the eval→remix switch or just advance. */
+  /** Route the feed after each rating: eval→remix switch, exploration, or advance. */
   private async afterCommit(): Promise<void> {
     if (!this.remixOnly && this.canRemix && this.rawRated >= EVAL_TARGET) {
       await this.enterRemixMode();
+    } else if (this.remixOnly && this.canRemix && !this.generatingRemix && this.noSmileStreak >= EXPLORE_AFTER) {
+      // a run of no-laughs → pull in fresh, unplayed videos instead of recycling the same
+      this.noSmileStreak = 0;
+      this.recent = [];
+      this.generatingRemix = true;
+      try { await this.remix(REMIX_BATCH, true); } finally { this.generatingRemix = false; }
+      await this.ensureNext();
     } else {
       await this.ensureNext();
     }
@@ -277,10 +290,13 @@ class LiveStore {
     this.capturing = false;
     this.playedIds.add(sound.id); // seen this session → eligible for a cut on replay
     const auc = this.rewardN ? this.rewardSum / this.rewardN : 0;
+    const noSmile = this.rewardPeak < NOT_SMILING;
     let reward = 0.6 * this.rewardPeak + 0.4 * auc;
     if (skipped) reward *= 0.4; // early skip = weak/negative signal
-    if (this.rewardPeak < NOT_SMILING) reward = 0; // no smile at all → fully penalized
+    if (noSmile) reward = 0;    // no smile at all → fully penalized
     reward = Math.max(0, Math.min(1, reward));
+    // track a no-smile streak in the live feed → triggers exploration of fresh videos
+    if (this.remixOnly) this.noSmileStreak = noSmile ? this.noSmileStreak + 1 : 0;
     // optimistic local update so the leaderboard feels live
     sound.plays += 1; sound.reward_sum += reward; sound.score = sound.reward_sum / sound.plays;
     sound.best = Math.max(sound.best, reward);
@@ -338,7 +354,7 @@ class LiveStore {
     this.current = null;
     this.smile = 0; this.liveScore = 0;
     this.remixOnly = false; this.rawRated = 0; this.generatingRemix = false;
-    this.playedIds.clear(); this.currentIsRepeat = false;
+    this.playedIds.clear(); this.currentIsRepeat = false; this.noSmileStreak = 0;
     if (this.phase !== "needs-sounds") this.phase = this.hasSounds ? "consent" : "needs-sounds";
   }
 }

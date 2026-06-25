@@ -190,16 +190,19 @@
                 <div class="reel-tags">{#each live.current.tags as t (t)}<span>{t}</span>{/each}</div>
               {/if}
             {/if}
-            <!-- live laugh score for THIS clip -->
-            <div class="reel-score">
-              <div class="reel-score-bar"><div style:width={`${Math.round(live.liveScore * 100)}%`}></div></div>
-              <div class="reel-score-num">{Math.round(live.liveScore * 100)}</div>
-            </div>
+            <!-- live laugh score — hidden in the live feed so it can't bias the reaction -->
+            {#if !live.remixOnly}
+              <div class="reel-score">
+                <div class="reel-score-bar"><div style:width={`${Math.round(live.liveScore * 100)}%`}></div></div>
+                <div class="reel-score-num">{Math.round(live.liveScore * 100)}</div>
+              </div>
+            {/if}
           </div>
 
           <div class="reel-actions">
             <span class="smile-mini">
               {#if live.reacting}<span class="reacting">👂 reading your reaction…</span>
+              {:else if live.remixOnly}📷 camera reading{#if !live.faceVisible} · <span class="warn">no face</span>{/if}
               {:else}😶 smile {smilePct}%{#if !live.faceVisible} · <span class="warn">no face</span>{/if}{/if}
             </span>
             <span class="reel-btns">
@@ -240,7 +243,7 @@
             <div class="lb-row">
               <span class="lb-rank">{i === 0 ? "🥇" : i === 1 ? "🥈" : i === 2 ? "🥉" : `#${i + 1}`}</span>
               <span class="lb-name">{s.name}</span>
-              <span class="lb-score">{Math.round(s.score * 100)}</span>
+              {#if !live.remixOnly}<span class="lb-score">{Math.round(s.score * 100)}</span>{/if}
             </div>
           {/each}
         {:else}

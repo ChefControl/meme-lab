@@ -169,8 +169,9 @@ app.post("/api/live/harvest-videos", (req, res) => {
 });
 
 app.post("/api/live/remix", (req, res) => {
-  const count = Math.min(Math.max(1, Number(req.body?.count ?? 4)), 10);
-  run("remixing clips", () => remixClips(count), res);
+  const count = Math.min(Math.max(1, Number(req.body?.count ?? 4)), 12);
+  const explore = !!req.body?.explore;
+  run("remixing clips", () => remixClips(count, explore), res);
 });
 
 app.post("/api/live/fill-audio", (_req, res) => {
