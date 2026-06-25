@@ -90,4 +90,24 @@ export interface TemplateDetail {
   negative_prompt: string;
 }
 
-export type View = "library" | "rate" | "duel" | "board";
+export type View = "library" | "rate" | "duel" | "board" | "live";
+
+/** A safety-screened clip in the Meme Lab Live reels pool (sound or, as of V2, video). */
+export interface Sound {
+  id: string;
+  kind: "sound" | "video" | "remix";
+  name: string;
+  source_url: string;
+  file: string;       // same-origin served path (.mp3 or .mp4)
+  duration?: number;  // seconds (videos)
+  caption?: { top: string; bottom: string }; // remix meme text (overlay)
+  parents?: { video: string; sound: string };
+  tags: string[];
+  flags: string[];    // e.g. "loud", "silent"
+  safety: "approved" | "rejected";
+  plays: number;
+  reward_sum: number;
+  score: number;      // running mean laugh reward, 0..1
+  best: number;
+  created_at: string;
+}

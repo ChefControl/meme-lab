@@ -6,6 +6,7 @@
   import Rate from "./components/Rate.svelte";
   import Duel from "./components/Duel.svelte";
   import Leaderboard from "./components/Leaderboard.svelte";
+  import Live from "./components/Live.svelte";
   import SeedModal from "./components/SeedModal.svelte";
   import Lightbox from "./components/Lightbox.svelte";
   import TemplateDrawer from "./components/TemplateDrawer.svelte";
@@ -34,6 +35,7 @@
       {#if store.view === "rate"}<Rate />{/if}
       {#if store.view === "duel"}<Duel />{/if}
       {#if store.view === "board"}<Leaderboard />{/if}
+      {#if store.view === "live"}<Live />{/if}
     </div>
   </main>
 
