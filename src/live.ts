@@ -599,3 +599,12 @@ export function scoreSound(id: string, reward: number): Sound | null {
 }
 
 export function humorProfile(): HumorProfile { return loadProfile(); }
+
+/** Wipe all learned ranking signal: zero every clip's score/plays and clear the profile. */
+export function resetScores(): { reset: number } {
+  const sounds = loadSounds();
+  for (const s of sounds) { s.plays = 0; s.reward_sum = 0; s.score = 0; s.best = 0; }
+  saveSounds(sounds);
+  saveJSON(PROFILE, { tag_affinity: {}, total_plays: 0, updated_at: "" });
+  return { reset: sounds.length };
+}
