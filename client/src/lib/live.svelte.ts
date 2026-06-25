@@ -10,7 +10,7 @@ import type { Sound } from "./types";
 export type Phase = "needs-sounds" | "consent" | "neutral" | "funny" | "reels" | "error";
 
 const CALIBRATION_CLIPS = 5; // how many known-funny sounds the funny baseline plays
-const MAX_CLIP_MS = 8000;    // safety cap so a long sound can't stall the feed
+const MAX_CLIP_MS = 13000;   // stall safety; above the 12s video length so clips play full
 const EVAL_TARGET = 20;      // raw clips to rate before the feed switches to remixes only
 const REMIX_BATCH = 12;      // remixes generated when entering remix mode / refilling
 const MIN_WATCH_MS = 2600;   // give a clip this long to land a laugh before we cut it
@@ -57,6 +57,8 @@ class LiveStore {
   private clipStartedAt = 0;          // performance.now() when the current clip began
   private audioEnded = false;         // audio finished; reaction tail is now running
   private clipEndedAt = 0;            // when the audio ended (tail start)
+  private playedIds = new Set<string>(); // clips seen this session (for first-play-full-length)
+  private currentIsRepeat = false;    // current clip has been played before this session
 
   get hasSounds(): boolean { return this.sounds.length > 0; }
 
@@ -158,9 +160,11 @@ class LiveStore {
         void this.finalizeReels();
       }
     }
-    // Aggressive cut: a clip that's still playing but hasn't earned any smile by
-    // MIN_WATCH gets cut short (and penalized) so the feed moves on fast.
-    if (this.capturing && !this.audioEnded && now - this.clipStartedAt >= MIN_WATCH_MS && this.rewardPeak < NOT_SMILING) {
+    // Aggressive cut — only AFTER evaluation and only on a REPLAY: first plays
+    // always run full length (even with no smile); a clip you've already seen that
+    // still isn't landing gets cut short.
+    if (this.capturing && !this.audioEnded && this.remixOnly && this.currentIsRepeat
+        && now - this.clipStartedAt >= MIN_WATCH_MS && this.rewardPeak < NOT_SMILING) {
       void this.cutForNoSmile();
     }
     this.raf = requestAnimationFrame(this.loop);
@@ -219,6 +223,7 @@ class LiveStore {
         "/api/live/next", { method: "POST", body: { exclude: this.recent, kinds } });
       this.current = sound;
       if (sound) {
+        this.currentIsRepeat = this.playedIds.has(sound.id); // first play vs replay
         this.recent = [sound.id, ...this.recent].slice(0, 16);
         this.startCapture();
         return true;
@@ -243,6 +248,8 @@ class LiveStore {
     this.remixOnly = false;
     this.rawRated = 0;
     this.recent = [];
+    this.playedIds.clear();
+    this.currentIsRepeat = false;
     void this.ensureNext();
   }
 
@@ -268,6 +275,7 @@ class LiveStore {
     const sound = this.current;
     if (!sound || !this.capturing) return;
     this.capturing = false;
+    this.playedIds.add(sound.id); // seen this session → eligible for a cut on replay
     const auc = this.rewardN ? this.rewardSum / this.rewardN : 0;
     let reward = 0.6 * this.rewardPeak + 0.4 * auc;
     if (skipped) reward *= 0.4; // early skip = weak/negative signal
@@ -330,6 +338,7 @@ class LiveStore {
     this.current = null;
     this.smile = 0; this.liveScore = 0;
     this.remixOnly = false; this.rawRated = 0; this.generatingRemix = false;
+    this.playedIds.clear(); this.currentIsRepeat = false;
     if (this.phase !== "needs-sounds") this.phase = this.hasSounds ? "consent" : "needs-sounds";
   }
 }
