@@ -13,6 +13,8 @@ const CALIBRATION_CLIPS = 5; // how many known-funny sounds the funny baseline p
 const MAX_CLIP_MS = 8000;    // safety cap so a long sound can't stall the feed
 const EVAL_TARGET = 20;      // raw clips to rate before the feed switches to remixes only
 const REMIX_BATCH = 12;      // remixes generated when entering remix mode / refilling
+const MIN_WATCH_MS = 2600;   // give a clip this long to land a laugh before we cut it
+const NOT_SMILING = 0.12;    // smile below this = not laughing → cut + penalize
 
 // Reaction-time handling — a laugh lands a beat AFTER the sound, so attribution
 // has to account for human reaction lag (~0.3–1.5s), especially on short clips.
@@ -156,6 +158,11 @@ class LiveStore {
         void this.finalizeReels();
       }
     }
+    // Aggressive cut: a clip that's still playing but hasn't earned any smile by
+    // MIN_WATCH gets cut short (and penalized) so the feed moves on fast.
+    if (this.capturing && !this.audioEnded && now - this.clipStartedAt >= MIN_WATCH_MS && this.rewardPeak < NOT_SMILING) {
+      void this.cutForNoSmile();
+    }
     this.raf = requestAnimationFrame(this.loop);
   };
 
@@ -264,6 +271,7 @@ class LiveStore {
     const auc = this.rewardN ? this.rewardSum / this.rewardN : 0;
     let reward = 0.6 * this.rewardPeak + 0.4 * auc;
     if (skipped) reward *= 0.4; // early skip = weak/negative signal
+    if (this.rewardPeak < NOT_SMILING) reward = 0; // no smile at all → fully penalized
     reward = Math.max(0, Math.min(1, reward));
     // optimistic local update so the leaderboard feels live
     sound.plays += 1; sound.reward_sum += reward; sound.score = sound.reward_sum / sound.plays;
@@ -293,6 +301,14 @@ class LiveStore {
     if (!this.capturing) return;
     this.reacting = false;
     await this.commitReward(false);
+    await this.afterCommit();
+  }
+
+  /** Cut a clip that isn't landing (no smile by MIN_WATCH) — penalized, advance fast. */
+  private async cutForNoSmile(): Promise<void> {
+    if (!this.capturing) return;
+    this.reacting = false;
+    await this.commitReward(true); // reward floors to 0 (no smile) → penalized
     await this.afterCommit();
   }
 

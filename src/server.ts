@@ -9,7 +9,7 @@ import { getDuelPair, leaderboard, recordDuel } from "./duel.js";
 import { generateCandidates } from "./generate.js";
 import { getImgflipTemplates, harvest, seedTemplate } from "./harvest.js";
 import {
-  harvestSounds, harvestVideos, remixClips, listSounds, pickNext, scoreSound,
+  harvestSounds, harvestVideos, remixClips, fillSilentClips, listSounds, pickNext, scoreSound,
   leaderboard as soundLeaderboard, humorProfile,
 } from "./live.js";
 import { DATA, TPL, getTemplate, listTemplates, saveCandidates, saveJSON, loadJSON } from "./store.js";
@@ -171,6 +171,10 @@ app.post("/api/live/harvest-videos", (req, res) => {
 app.post("/api/live/remix", (req, res) => {
   const count = Math.min(Math.max(1, Number(req.body?.count ?? 4)), 10);
   run("remixing clips", () => remixClips(count), res);
+});
+
+app.post("/api/live/fill-audio", (_req, res) => {
+  run("filling silent videos", () => fillSilentClips(), res);
 });
 
 // Stateless next-pick: the client passes recently played ids to avoid repeats.

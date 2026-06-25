@@ -292,6 +292,28 @@ async function ytDownload(videoId: string, id: string): Promise<string | null> {
   return fs.existsSync(out) ? out : null;
 }
 
+/** True if the file has an audio stream that isn't effectively silent. */
+async function hasUsableAudio(file: string): Promise<boolean> {
+  try {
+    const { stdout } = await execFileP("ffprobe", ["-v", "error", "-select_streams", "a",
+      "-show_entries", "stream=codec_type", "-of", "csv=p=0", file]);
+    if (!stdout.trim()) return false;
+  } catch { return false; }
+  try {
+    const { stderr } = await execFileP("ffmpeg", ["-hide_banner", "-i", file, "-af", "volumedetect", "-f", "null", "-"]);
+    const m = stderr.match(/mean_volume:\s*(-?\d+(?:\.\d+)?) dB/);
+    return m ? parseFloat(m[1]) > -50 : true; // present but unmeasured → assume ok
+  } catch { return true; }
+}
+
+/** Replace a clip's audio with a sound looped to fill the whole video. */
+async function fillWithSound(videoPath: string, soundPath: string): Promise<void> {
+  const tmp = `${videoPath}.fill.mp4`;
+  await execFileP("ffmpeg", ["-y", "-i", videoPath, "-stream_loop", "-1", "-i", soundPath,
+    "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", tmp]);
+  fs.renameSync(tmp, videoPath);
+}
+
 /** Claude vision screens a sampled frame for safety + humor tags. */
 async function screenFrame(jpgPath: string, title: string): Promise<Verdict> {
   if (!process.env.ANTHROPIC_API_KEY) return { name: title, safe: !BLOCK.test(title), tags: [], loud: false };
@@ -345,6 +367,7 @@ export async function harvestVideos(max = 8): Promise<{ added: number; rejected:
     candidates.sort((a, b) => (a.dur || 999) - (b.dur || 999));
 
     const existing = new Set(sounds.map((s) => s.id));
+    const soundFiles = sounds.filter((s) => s.kind === "sound").map((s) => localOf(s.file)).filter((p) => fs.existsSync(p));
     // Process more than `max` (some downloads fail / get rejected), in parallel.
     const slice = candidates.filter((c) => !existing.has(`yt-${c.videoId}`)).slice(0, Math.ceil(max * 1.4));
     type Res = { clip?: Sound; rejected?: boolean } | null;
@@ -358,10 +381,16 @@ export async function harvestVideos(max = 8): Promise<{ added: number; rejected:
         await execFileP("ffmpeg", ["-y", "-ss", "0.5", "-i", outPath, "-frames:v", "1", "-vf", "scale=400:-1", framePath]);
         const verdict = await screenFrame(framePath, c.title);
         if (!verdict.safe) { fs.rmSync(outPath, { force: true }); return { rejected: true }; }
+        // guarantee audible sound: fill silent/quiet clips with a looped pool sound
+        const flags = verdict.loud ? ["loud"] : [];
+        if (soundFiles.length && !(await hasUsableAudio(outPath))) {
+          await fillWithSound(outPath, soundFiles[Math.floor(Math.random() * soundFiles.length)]);
+          flags.push("filled-audio");
+        }
         return { clip: {
           id, kind: "video", name: cleanTitle(c.title), source_url: c.url,
           file: `/data/sounds/video/${id}.mp4`, duration: 12,
-          tags: verdict.tags ?? [], flags: verdict.loud ? ["loud"] : [],
+          tags: verdict.tags ?? [], flags,
           safety: "approved", plays: 0, reward_sum: 0, score: 0, best: 0, created_at: new Date().toISOString(),
         } };
       } catch (e) {
@@ -443,9 +472,10 @@ export async function remixClips(count = 4): Promise<{ added: number; total: num
     while (all.some((x) => x.id === id)) id += "x";
     const outPath = path.join(VIDEO_DIR, `${id}.mp4`);
     try {
-      // video visuals (copy) + the chosen sound as the audio track
-      await execFileP("ffmpeg", ["-y", "-i", localOf(v.file), "-i", localOf(s.file),
-        "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", outPath]);
+      // video visuals (copy) + the chosen sound LOOPED to fill the whole clip
+      // (so a 1s sound doesn't leave 11s of silence), trimmed to the video length.
+      await execFileP("ffmpeg", ["-y", "-i", localOf(v.file), "-stream_loop", "-1", "-i", localOf(s.file),
+        "-map", "0:v:0", "-map", "1:a:0", "-c:v", "copy", "-c:a", "aac", "-shortest", outPath]);
       const clip: Sound = {
         id, kind: "remix", name: `${s.name} × ${v.name}`.slice(0, 70),
         source_url: `remix://${v.id}+${s.id}`, file: `/data/sounds/video/${id}.mp4`,
@@ -463,6 +493,27 @@ export async function remixClips(count = 4): Promise<{ added: number; total: num
   }
   saveSounds(all);
   return { added, total: listSounds().length };
+}
+
+/** Backfill: fill any existing silent/quiet video clips with a looped pool sound. */
+export async function fillSilentClips(): Promise<{ filled: number; checked: number }> {
+  const all = loadSounds();
+  const soundFiles = all.filter((s) => s.kind === "sound").map((s) => localOf(s.file)).filter((p) => fs.existsSync(p));
+  if (!soundFiles.length) return { filled: 0, checked: 0 };
+  let filled = 0, checked = 0;
+  const videos = all.filter((s) => s.kind === "video");
+  await mapPool(videos, VIDEO_CONCURRENCY, async (clip) => {
+    const p = localOf(clip.file);
+    if (!fs.existsSync(p)) return;
+    checked++;
+    if (!(await hasUsableAudio(p))) {
+      await fillWithSound(p, soundFiles[Math.floor(Math.random() * soundFiles.length)]);
+      if (!clip.flags.includes("filled-audio")) clip.flags.push("filled-audio");
+      filled++;
+    }
+  });
+  saveSounds(all);
+  return { filled, checked };
 }
 
 /* ----------------------------------------------------- recommender (bandit) */
